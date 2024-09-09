@@ -3,13 +3,17 @@
 <head>
     <title>Project 1</title>
 
-    <script type="text/javascript"
-    src="http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
     </script>
     
-    <script type="text/x-mathjax-config">
-        MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
-    </script>
 
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
@@ -80,6 +84,10 @@
     <h2 style="text-align: center">Colorizing the Prokudin-Gorskii photos</h2>
     <h3 style="text-align: center">Derry Xu</h3>
     <h3 style="text-align: center">CS 180, Fall 2024</h3>
+
+    <p>
+        Note: slideshows are not functional on .pdf version of this site and you won't be able to see all of my pictures.
+    </p>
 
     <h2>Project Description:</h2>
     <p>
@@ -410,14 +418,14 @@
 
     <p>
         To implement the Canny edge detector, I used the <code>skimage.feature.canny()</code> function with $\sigma=5$ to avoid reading too much noise during 
-        edge detection. I also created a mask so that we only detect edges in the extremeties of the image. I chose to use a mask that that takes $7.5/%$ off of 
+        edge detection. I also created a mask so that we only detect edges in the extremeties of the image. I chose to use a mask that that takes $7.5\%$ off of 
         each side, similar to my naive constant crop, with the idea being in the worst case the Canny filter based prop would only crop as much as the naive crop. 
         Since this is a post-processing crop, I'm more ambivalent to accidentally including some borders and distorted areas, I prioritize capturing as much 
         of the image as possible while still removing noticable borders.
     </p>
 
     <p>
-        After retrieving the edges, I go to each border of the image (the respective $7.5/%$ areas), and take the median index along the axis perpendicular to 
+        After retrieving the edges, I go to each border of the image (the respective $7.5\%$ areas), and take the median index along the axis perpendicular to 
         the side we are cropping (ex. for cropping the top, we retrieve the mean index for edges along the vertical axis). This median index is where I choose to crop.
     </p>
 

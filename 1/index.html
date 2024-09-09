@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Project 1</title>
+
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+    </script>
+
+    <script type="text/javascript"
+    src="http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Trebuchet MS', sans-serif;
+            margin: 20px;
+            word-wrap: break-word; 
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 40px; 
+            margin-bottom: 20px;
+        }
+
+        .image-row2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .image-row2 img {
+            width: 100%;
+        }
+
+        .image-row3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .image-row3 img {
+            width: 100%;
+        }
+
+        figure {
+            text-align: center;
+        }
+
+        .carousel {
+            width: 600px;  
+            height: auto; 
+            margin-left: auto; 
+            margin-right: auto; 
+            margin-top: 20px; 
+            margin-bottom: 20px; 
+        }
+
+        .carousel-inner img {
+            width: 100%;   
+            height: 100%;  
+            object-fit: cover; 
+        }
+
+        .carousel-caption {
+            margin-left: auto; 
+            margin-right: auto;
+            margin-bottom: -20px;
+        }
+        
+    </style>
+
+</head>
+
+<body>
+    <h1 style="text-align: center">Images of the Russian Empire:</h1>
+    <h2 style="text-align: center">Colorizing the Prokudin-Gorskii photos</h2>
+    <h3 style="text-align: center">Derry Xu</h3>
+    <h3 style="text-align: center">CS 180, Fall 2024</h3>
+
+    <h2>Project Description:</h2>
+    <p>
+        In this project, we were asked to take scanned glass plate images from the Prokudin-Gorskii collection, and automatically overlay then using image processing techniques.
+        In particular, we were given three color channels: R, G, and B, each of which were represented by a 2-dimensional matrix, and had to implement a procedure to evaluate 
+        what alignment of those channels would result in the most accurate final, single, RGB color image.
+    </p>
+
+    <h2>Alignment: Exhaustive Search:</h2>
+    <p>
+        For the entire project, we align the three plates by taking the red and green plate and aligning them individually to the blue plate. After finding the displacements 
+        for those alignments, we take the displaced red and green plates and combine them both with the blue plate for our final image.
+    </p>
+
+    <p>
+        The simplest and most intuitive method of aligning the images is iterating over a displacement range and comparing all possible alignments across that range 
+        using some kind of similarity metric. For my naive approach, I chose to use mean squared error:
+    </p>
+
+    <p>
+        $$MSE(A, B) = \frac{1}{N} \sum_{i} \sum_{j} (A_{ij} - B_{ij})^2$$
+    </p>
+
+    <p>
+        The alignment function I wrote displaces images using the <code>np.roll()</code> function, which "rolls over" rows/columns when they leave the original 
+        dimensions of the matrix, instead placing them in the same order at the opposite end of the matrix. It is important to note that the alignment scoring 
+        does not make use of rolled over pixels in similarity scoring.
+    </p>
+
+    <p>
+        For smaller images, this can work very effectively by looking through a $[-15, 15]$ range of pixel displacements for both horizontal (shifting columns) and vertical 
+        (shifting rows) directions, since this range is not computationally prohibitive and still covers a large portion of the possible alignments.
+    </p>
+
+    <p>
+        Through this naive method, we get decent results on tobolsk.jpg, but not on monastery.jpg and cathedral.jpg:
+    </p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/mse_exhaustive_none/tobolsk.jpg" alt="tobolsk">
+            <figcaption>tobolsk.jpg</figcaption>
+        </figure>
+        <figure>
+            <img src="results/mse_exhaustive_none/monastery.jpg" alt="monastery">
+            <figcaption>monastery.jpg</figcaption>
+        </figure>
+        <figure>
+            <img src="results/mse_exhaustive_none/cathedral.jpg" alt="cathedral">
+            <figcaption>cathedral.jpg</figcaption>
+        </figure>
+    </div>
+
+    <h2>Pre-processing: Constant Crop</h2>
+
+    <p>
+        A possibility for why the last two pictures are misaligned even with $MSE$ scoring is that the borders of the raw plates are interfering with the accuracy 
+        of the scoring system. Combined with the fact that there also tends to be more distortion around the edges of the picture even past the borders, it 
+        seemed appropriate to crop the edges of the images <i>before</i> aligning so the alignment is focused on the focused center of the image. If the center 
+        is appropriately lined up, it follows that the remainder of the photo should be as well.
+    </p>
+
+    <p>
+        I specifically chose to take $7.5\%$ off of each side (left, right, top, bottom) of the images, then align. Then using the extracted displacements, I 
+        mapped the <i>original, uncropped</i> plates together. This netted significantly improved results on the smaller images.
+    </p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/mse_exhaustive_const/tobolsk.jpg" alt="tobolsk">
+            <figcaption>tobolsk.jpg</figcaption>
+        </figure>
+        <figure>
+            <img src="results/mse_exhaustive_const/monastery.jpg" alt="monastery">
+            <figcaption>monastery.jpg</figcaption>
+        </figure>
+        <figure>
+            <img src="results/mse_exhaustive_const/cathedral.jpg" alt="cathedral">
+            <figcaption>cathedral.jpg</figcaption>
+        </figure>
+    </div>
+
+    <h2>Alignment: Pyramid Search</h2>
+
+    <p>
+        While the exhaustive search is effective for the smaller images because they are sized in the order of hundreds of pixels, it becomes ineffective 
+        for larger images in the order of thousands of pixels. This is because the $[15, 15]$ displacement range becomes inadequate in finding the best 
+        displacement, and increasing the range also drastically increases the runtime of the alignment function. Thus, a more efficient method of alignment 
+        is needed.
+    </p>
+
+    <p>
+        The solution was to implement a pyramid search, where we create an image pyramid by iteratively downsample the image several times, then work "down" 
+        the pyramid by finding displacements at lower resolutions, then carrying on the best displacement at that level to the next lowest level until we reach 
+        the original resolution. This makes the search process more efficient; we first find an approximately good displacement, move to a higher resolution, and 
+        starting from that approximate location, we can find an even better displacement, so on and so forth. While considering a large range of possible displacments 
+        we can still retain speed and accuracy.
+    </p>
+
+    <p>
+        The following are the results of my pyramid search:
+    </p>
+
+    <div id="PyramidMSE_carousel" class="carousel slide">
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img class="d-block w-100" src="results/mse_pyramid_const/church.jpg" alt="church.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>church.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/emir.jpg" alt="emir.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>emir.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/harvesters.jpg" alt="harvesters.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>harvesters.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/icon.jpg" alt="icon.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>icon.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/lady.jpg" alt="lady.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>lady.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/melons.jpg" alt="melons.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>melons.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/onion_church.jpg" alt="onion_church.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>onion_church.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/sculpture.jpg" alt="sculpture.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>sculpture.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/self_portrait.jpg" alt="self_portrait.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>self_portrait.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/three_generations.jpg" alt="three_generations.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>three_generations.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_const/train.jpg" alt="train.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>train.tif</p>
+                </div>
+            </div>
+        </div>
+        <a class="carousel-control-prev" href="#PyramidMSE_carousel" role="button" data-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="sr-only">Previous</span>
+        </a>
+        <a class="carousel-control-next" href="#PyramidMSE_carousel" role="button" data-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="sr-only">Next</span>
+        </a>
+    </div>
+
+    <script>
+        $('#PyramidMSE_carousel').carousel('pause');
+    </script>
+
+    <h2>Alignment: SSIM</h2>
+
+    <p>
+        Generally, a simple crop and $MSE$ alignment using a pyramid search is suitable for all the large images. The single exception is emir.tif, 
+        which has trouble aligning because the three color channels have very different color intensities on matching sections of the photograph. Thus, 
+        it may not be appropriate to use $MSE$ to match channels, since the blue and red channels specifically seem to have significant intensity differences.
+    </p>
+
+    <p>
+        The solution is to use a non-RGB based similarity metric, such as the structural similarity index measure (SSIM), which is instead based on the product
+        luminance, constrast, and structure. The following explanation is paraphraphrased from 
+        <a href=".https://en.wikipedia.org/wiki/Structural_similarity_index_measure">Wikipedia</a>.
+    </p>
+
+    <p>
+        Comparison of the <i>luminance</i> between images $x$ and $y$ uses the following formula:
+    </p>
+
+    <p>
+        $$l(x, y) = \frac{2\mu_x \mu_y + c_1}{\mu_x^2 + \mu_y^2 + c_1}$$
+    </p>
+
+    <p>
+        Where $\mu_x$ and $\mu_y$ are the pixel sample means of $x$ and $y$ and $c_1$ is a constant used to stabilize the division. When 
+        $\mu_x = \mu_y$, the comparison formula results in $1$, and the further apart the sample means are, the smaller $l(x, y)$ is.
+    </p>
+
+    <p>
+        Similarly, comparison of the <i>contrast</i> between images $x$ and $y$ uses the following formula:
+    </p>
+
+    <p>
+        $$c(x, y) = \frac{2\sigma_x \sigma_y + c_2}{\sigma_x^2 + \sigma_y^2 + c_2}$$
+    </p>
+
+    <p>
+        Where $\sigma_x$ and $\sigma_y$ are the sample variances of $x$ and $y$ and $c_2$ is a different constant used to stabilize the division. In the same way 
+        as luminance, when $\sigma_x = \sigma_y$, the comparison formula results in $1$, and the further apart the sample means are, the smaller $c(x, y)$ is.
+    </p>
+
+    <p>
+        Finally, comparison of the <i>structure</i> between images $x$ and $y$ uses the following formula:
+    </p>
+
+    <p>
+        $$s(x, y) = \frac{\sigma_{xy} + c_3}{\sigma_x^2\sigma_y^2 + c_3}$$
+    </p>
+
+    <p>
+        Where $\sigma_{xy}$ is the covariance of $x$ and $y$ and $c_3$ is a different constant used to stabilize the division ($c_3 = c_2/2$). This similarity 
+        score is 1 when $x$ and $y$ are perfectly correlated, and the less correlated they are the lower the score. Without the constants, this similarity score 
+        is the definition of the correlation between $x$ and $y$.
+    </p>
+
+    <p>
+        Thus, $SSIM$ measures the similarity between two planes based on factors other than direct intensity, which we hope will give better results on an edge 
+        case like emir.tif. I implemented $SSIM$ by using <code>sk.metrics.structural_similarity()</code> (sadly no bells and whistles here).
+    </p>
+
+    <p>
+        A large disadvantage of $SSIM$ as a metric is that it takes much longer to run than $MSE$, even when optimized. While $MSE$ based pyramid search 
+        generally took less than 30 seconds per photo, $SSIM$ based pyramid search typically took around 5 minutes on larger images. 
+        Thus, I only ran $SSIM$ on a few images.
+    </p>
+
+    <p>
+        The following are the results of my pyramid search using $SSIM$:
+    </p>
+
+    <div id="PyramidSSIM_carousel" class="carousel slide">
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img class="d-block w-100" src="results/ssid_pyramid_const/emir.jpg" alt="emir.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>emir.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/ssid_pyramid_const/icon.jpg" alt="icon.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>icon.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/ssid_pyramid_const/onion_church.jpg" alt="onion_church.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>onion_church.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/ssid_pyramid_const/self_portrait.jpg" alt="self_portrait.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>self_portrait.tif</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/ssid_pyramid_const/three_generations.jpg" alt="three_generations.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>three_generations.tif</p>
+                </div>
+            </div>
+        </div>
+        <a class="carousel-control-prev" href="#PyramidSSIM_carousel" role="button" data-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="sr-only">Previous</span>
+        </a>
+        <a class="carousel-control-next" href="#PyramidSSIM_carousel" role="button" data-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="sr-only">Next</span>
+        </a>
+    </div>
+
+    <script>
+        $('#PyramidSSIM_carousel').carousel('pause');
+    </script>
+
+    <p>
+        While emir.tif drastically improved, most other images I tested saw no improvement, with only one pixel differences in the two alignments.
+        The exception was three_generations.tif, which had a larger difference between $SSIM$ and $MSE$, but contrary to emir.tif, seemed better using 
+        $MSE$, if only marginally (and unscientifically based on my and my housemates' opinions). Below is a side-by-side for easier comparison if you would 
+        like to stare at it and find the very small differences:
+    </p>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/mse_pyramid_const/three_generations.jpg" alt="three_generations_mse">
+            <figcaption>MSE</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ssid_pyramid_const/three_generations.jpg" alt="three_generations_ssim">
+            <figcaption>SSIM</figcaption>
+        </figure>
+    </div>
+
+    <h2>Post-processing: Canny Crop and Rollover Crop</h2>
+    
+    <p>
+        The final step I took during this project was to post-process the images to attempt to clean off the abnormally colored edges through doing two things. 
+        First, I implemented a more dynamic cropping function using canny edge detectors to try and find the borders. Second, I automatically cropped all 
+        rolled over pixels.
+    </p>
+
+    <p>
+        To implement the Canny edge detector, I used the <code>skimage.feature.canny()</code> function with $\sigma=5$ to avoid reading too much noise during 
+        edge detection. I also created a mask so that we only detect edges in the extremeties of the image. I chose to use a mask that that takes $7.5/%$ off of 
+        each side, similar to my naive constant crop, with the idea being in the worst case the Canny filter based prop would only crop as much as the naive crop. 
+        Since this is a post-processing crop, I'm more ambivalent to accidentally including some borders and distorted areas, I prioritize capturing as much 
+        of the image as possible while still removing noticable borders.
+    </p>
+
+    <p>
+        After retrieving the edges, I go to each border of the image (the respective $7.5/%$ areas), and take the median index along the axis perpendicular to 
+        the side we are cropping (ex. for cropping the top, we retrieve the mean index for edges along the vertical axis). This median index is where I choose to crop.
+    </p>
+
+    <p>
+        The mains struggle ended up being cases where the white border was cropped, but the black border remained. This was fairly common and a current limitation 
+        of my heuristic approach to identifying what index to cut.
+    </p>
+
+    <p>
+        Below are some comparisons of the original image (on the left), the Canny based crops (in middle) and the naive, constant crops (on the right) on the 
+        blue channels on some images.
+    </p>
+
+    <div id="CannyComp_carousel" class="carousel slide">
+        <div class="carousel-inner">
+
+            <div class="carousel-item active">
+                <div class="row">
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/before/cathedral.jpg" class="d-block w-100" alt="cathedral_before">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/canny/cathedral.jpg" class="d-block w-100" alt="cathedral_canny">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/const/cathedral.jpg" class="d-block w-100" alt="cathedral_after">
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row">
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/before/church.jpg" class="d-block w-100" alt="church_before">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/canny/church.jpg" class="d-block w-100" alt="church_canny">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/const/church.jpg" class="d-block w-100" alt="church_after">
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row">
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/before/emir.jpg" class="d-block w-100" alt="emir_before">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/canny/emir.jpg" class="d-block w-100" alt="emir_canny">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/const/emir.jpg" class="d-block w-100" alt="emir_after">
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row">
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/before/harvesters.jpg" class="d-block w-100" alt="harvesters_before">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/canny/harvesters.jpg" class="d-block w-100" alt="harvesters_canny">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/const/harvesters.jpg" class="d-block w-100" alt="harvesters_after">
+                    </div>
+                </div>
+            </div>
+
+            <div class="carousel-item">
+                <div class="row">
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/before/icon.jpg" class="d-block w-100" alt="icon_before">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/canny/icon.jpg" class="d-block w-100" alt="icon_canny">
+                    </div>
+                    <div class="col-md-4">
+                        <img src="results/canny_crop/const/icon.jpg" class="d-block w-100" alt="icon_after">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <a class="carousel-control-prev" href="#CannyComp_carousel" role="button" data-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="sr-only">Previous</span>
+        </a>
+        <a class="carousel-control-next" href="#CannyComp_carousel" role="button" data-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="sr-only">Next</span>
+        </a>
+    </div>
+
+    <script>
+        $('#CannyComp_carousel').carousel('pause');
+    </script>
+
+    <p>
+        The last step was to remove the roll over pixels from the final image (which significantly improved the border issues). The final images and their 
+        shifts are below (all using $MSE$ except for emir.tif, which uses $SSIM$).
+    </p> 
+
+    <div id="final_results_carousel" class="carousel slide">
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/cathedral.jpg" alt="cathedral.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>cathedral - G shift: (5, 2), R shift: (12, 3)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/monastery.jpg" alt="monastery.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>monastery - G shift: (-3, 2), R shift: (3, 2)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/tobolsk.jpg" alt="tobolsk.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>tobolsk - G shift: (3, 3), R shift: (6, 3)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/church.jpg" alt="church.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>church - G shift: (25, 4), R shift: (59, -4)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/emir_final.jpg" alt="emir.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>emir - G shift: (50, 23), R shift: (105, 40)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/harvesters.jpg" alt="harvesters.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>harvesters - G shift: (59, 16), R shift: (124, 13)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/icon.jpg" alt="icon.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>icon - G shift: (41, 17), R shift: (90, 23)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/lady.jpg" alt="lady.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>lady - G shift: (56, 8), R shift: (116, 11)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/melons.jpg" alt="melons.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>melons - G shift: (82, 11), R shift: (179, 13)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/onion_church.jpg" alt="onion_church.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>onion_church - G shift: (51, 26), R shift: (108, 36)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/sculpture.jpg" alt="sculpture.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>sculpture - G shift: (33, -11), R shift: (140, -27)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/self_portrait.jpg" alt="self_portrait.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>self_portrait - G shift: (79, 29), R shift: (176, 37)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/three_generations.jpg" alt="three_generations.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>three_generations - G shift: (53, 14), R shift: (112, 11)</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img class="d-block w-100" src="results/mse_pyramid_canny/train.jpg" alt="train.jpg">
+                <div class="carousel-caption d-none d-md-block">
+                    <p>train - G shift: (42, 6), R shift: (87, 32)</p>
+                </div>
+            </div>
+        </div>
+        <a class="carousel-control-prev" href="#final_results_carousel" role="button" data-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="sr-only">Previous</span>
+        </a>
+        <a class="carousel-control-next" href="#final_results_carousel" role="button" data-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="sr-only">Next</span>
+        </a>
+    </div>
+
+    <script>
+        $('#final_results_carousel').carousel('pause');
+    </script>
+
+</body>
+</html>

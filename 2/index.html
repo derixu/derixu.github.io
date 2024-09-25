@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Project 1</title>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 30px; 
+            padding: 0;  
+        }
+
+        body {
+            font-family: 'Trebuchet MS', sans-serif;
+            word-wrap: break-word; 
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 40px; 
+            margin-bottom: 20px;
+        }
+
+        .image-col2 {
+            display: grid;
+            grid-template-rows: repeat(2, auto);
+            gap: 50px;
+        }
+
+        .image-col2 img {
+            width: 100%;
+        }
+
+        .image-row2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 100px;
+        }
+
+        .image-row2 img {
+            width: 100%;
+        }
+
+        .image-row3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 100px;
+        }
+
+        .image-row3 img {
+            width: 100%;
+        }
+
+        .image-row4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 50px;
+        }
+
+        .image-row4 img {
+            width: 100%;
+        }
+
+        .image-row5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 30px;
+        }
+
+        .image-row5 img {
+            width: 100%;
+        }
+
+    </style>
+
+</head>
+
+<body>
+    <h1 style="text-align: center">Fun With Filters and Frequencies!</h1>
+    <h3 style="text-align: center">Derry Xu</h3>
+    <h3 style="text-align: center">CS 180, Fall 2024</h3>
+
+    <h2>1.1: Finite Difference Operator</h2>
+
+    <p>
+        In this section of the project, use the finite difference filter to approximate the partial derivatives in the $x$ and 
+        $y$ directions. More specificially:
+    </p>
+
+    <p>
+        $$
+        D_x = \begin{bmatrix}1 & -1\end{bmatrix}, D_y = \begin{bmatrix}1 \\ -1\end{bmatrix}
+        $$
+    </p>
+
+    <p>
+        We use $D_x$ and $D_y$ as filters to convolve with our image, which is intended to find large changes in pixel values
+        in horizontal and vertical directions. To get the edges, we can take the absolute value of the partials (since 
+        negative and positive change both indicate edges) and binarize the partials using a threshold.
+    </p>
+
+    <p>To test these filters, we convolve them on a image of a cameraman, and get the following gradients:</p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/data/cameraman.png" alt="camera man">
+            <figcaption>original image</figcaption>
+        </figure>
+        <figure>
+            <img src="results/1.1/horizontal_edges.png" alt="horizontal edges">
+            <figcaption>horizontal edges, ie. convolved with $D_y$, threshold = 0.25</figcaption>
+        </figure>
+        <figure>
+            <img src="results/1.1/vertical_edges.png" alt="vertical edges">
+            <figcaption>vertical edges, ie. convolved with $D_x$, threshold = 0.25</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        To create edges that aren't just horizontal or vertical, we can calculate the gradient magnitude, which 
+        we can calculate as:
+    </p>
+
+    <p>
+        $$||\nabla f|| = \sqrt{(\frac{\partial f}{\partial x})^2 + (\frac{\partial f}{\partial y})^2}$$
+    </p>
+
+    <p>
+        Essentially, at each pixel we take the square root of the sum of the squared x and y partial derivatives at that point, 
+        which in our case, is approximated by our convolutions. Using the above operation and our previously found partial derivative 
+        approximations, and a new threhsold, we can try and find the complete edges of the picture:
+    </p>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/1.1/grad_magnitude.png" alt="gradient magnitude">
+            <figcaption>Gradient magnitude before thresholding</figcaption>
+        </figure>
+        <figure>
+            <img src="results/1.1/grad_magnitude_thresholded.png" alt="gradient magnitude binarized">
+            <figcaption>Gradient magnitude using threshold = 0.3</figcaption>
+        </figure>
+    </div>
+
+    <h2>1.2: Derivative of Gaussian Filter</h2>
+
+    To make our edges more defined and eliminate noise, we then used a Gaussian low pass filter to remove the high frequencies 
+    from the image and blur the image before using the gradient magnitude to detect edges. The main difference ends up being the 
+    strength of the lines around the cameraman, and some minimal elimination of noise, though there are still some unwanted edges.
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/1.2/low_pass.png" alt="low pass">
+            <figcaption>Gaussian filtered cameraman before gradient magnitude: filter size = 5x5, sigma = 1</figcaption>
+        </figure>
+        <figure>
+            <img src="results/1.2/gaus_grad_mag.png" alt="gradient magnitude">
+            <figcaption>Gaussian filter + gradient magnitude before thresholding</figcaption>
+        </figure>
+        <figure>
+            <img src="results/1.2/gauss_grad_mag_thresholded.png" alt="gradient magnitude binarized">
+            <figcaption>Gaussian filter + gradient magnitude after thresholding, threshold = 0.1</figcaption>
+        </figure>
+    </div>
+
+    To replicate the last image, we can use one convolution as well by constructing the derivative of Gaussian filter, which 
+    we create by first convolving the 2D Gaussian filter with each the $D_x$ and $D_y$ filters (don't hold dimensions), then 
+    using this filters as the DoG filters. The code for this is in my submitted notebook.
+
+    <h2>2.1: Image "Sharpening"</h2>
+
+    <p>
+        In this section, we try and sharpen images by taking the high frequency components of the image and and adding more of 
+        them to the base image. To demonstrate the process, I used the provided image of the Taj Mihal.
+    </p>
+
+    <p>
+        We first use a Gaussian filter (from the previous section) to isolate the low frequency components of the image. Then, by 
+        subtratcing this low passed image from the original base image, we can extract the high frequencies that were removed 
+        by the Gaussian filter. Finally, by adding some multiple of these high frequencies to the original image, and clipping any out 
+        of bounds pixel values, we can create a sharpened image. This is done for each channel of the image independently.
+    </p>
+
+    <div class="image-row4">
+        <figure>
+            <img src="results/data/taj.jpg" alt="original image">
+            <figcaption>Original image </figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.1/taj_lowpass.png" alt="low pass">
+            <figcaption>Gaussian filtered Taj Mihal: filter size = 5x5, $sigma = 1$ </figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.1/taj_highpass.png" alt="high pass">
+            <figcaption>Normalized high pass of the image</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.1/taj_sharp.png" alt="sharpened image">
+            <figcaption>Sharpened Taj Mihal using $\alpha$ = 1 and clipping</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        This entire process can be captured in a single convolution using the following filter: $((1 + \alpha)e - \alpha g)$,
+        where $e$ is the unit impulse filter of the same size as the Gaussian, and $g$ is the 2D Gaussian filter. In my code, 
+        you can see that this approach gives us the same sharpened image as using multiple steps (blur -> highpass -> add).
+    </p>
+
+    <p>
+        Using the same technique, I sharpened an image of the Berkeley night skyline, though I personally feel I still prefer the 
+        unsharpened version.
+    </p>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/data/berkeley.jpg" alt="original image">
+            <figcaption>Original Image</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.1/berkeley_sharp.png" alt="sharpened Berkeley">
+            <figcaption>Sharpened image using $\alpha = 0.75$, filter size = 20x20, $\sigma = 5$</figcaption>
+        </figure>
+    </div>
+
+    <h2>2.2: Hybrid Images</h2>
+
+    <p>
+        In this section of the project, we combine low and high frequencies to make hybrid images where the image changes depending on the 
+        distance you view it from.
+    </p>
+    
+    <p>
+        To construct the hybrid images, we use techniques from the previous sections. More specifically, after aligning the images, 
+        we create a low frequency version of one image (the one viewed from afar) using a Gaussian filter. Then we create a high frequency 
+        version of the other image (the one viewed from up close) using the difference between the original image and the low passed 
+        image. Then, we average the two images, and get our final result.
+    </p>
+
+    <p>
+        The first hybrid image created was the one provided by the staff:
+    </p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/2.2/derek_aligned.png" alt="Derek">
+            <figcaption>Aligned Derek</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/cat_aligned.png" alt="Nutmeg">
+            <figcaption>Aligned Nutmeg</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/catman.png" alt="Catman">
+            <figcaption>Hybrid between Derek (low pass), and Nutmeg (high pass) using size = 50x50, $\sigma = 15$</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        I also chose an intentionally mismatching set of images to show a potential difficult example: when the images don't structurally 
+        match up well and one image has many high frequencies:
+    </p>
+
+    <figure>
+        <img src="results/2.2/failure.png" alt="failure">
+        <figcaption>Forest mixed with building. In the end, the high frequencies of the forest are so much that it just looks like noise</figcaption>
+    </figure>
+
+    <p>
+        I think my best result was in mixing two football players on the Philadelphia Eagles: Jalen Hurts and AJ Brown. This proved more effective because 
+        I used headshots from each player, leading to matching angles, and since they are both humanoid, matching features as well. I think the most interesting thing 
+        is looking at their teeth, in my experience it looks like the hybrid image smiles wider when you get further (Hurts, the low pass, has a wider smile than Brown).
+    </p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/2.2/hurts_aligned.png" alt="Jalen">
+            <figcaption>Aligned Hurts</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/brown_aligned.png" alt="AJ">
+            <figcaption>Aligned Brown</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/eagles.png" alt="Eagles together">
+            <figcaption>Hybrid between Hurts (low pass), and Brown (high pass) using size = 10x10, $\sigma = 3$</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        I also conducted my Fourier analysis on this hybrid image.
+    </p>
+
+    <div class="image-row5">
+        <figure>
+            <img src="results/2.2/FFT/aligned_hurts.png" alt="Hurts">
+            <figcaption>FFT of the aligned Hurts image. It includes a strong vertical line because of the cropping issues.</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/FFT/aligned_brown.png" alt="Brown">
+            <figcaption>FFT of the aligned Brown image. It includes both a strong vertical and horizontal line because of cropping </figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/FFT/hurts_lowpass.png" alt="Hurts lowpass">
+            <figcaption>Low pass of Hurts in FFT space</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/FFT/brown_highpass.png" alt="Brown highpass">
+            <figcaption>High pass of Brown in FFT space</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.2/FFT/hybrid.png" alt="hybrid">
+            <figcaption>Hybrid image in FFT space</figcaption>
+        </figure>
+    </div>
+
+    <h2>2.3: Gaussian and Laplacian Stacks</h2>
+
+    <p>
+        To set up our blending in the next section, in this section we create Gaussian 
+        and Laplacian stacks, which will us the blend different frequencies separately 
+        later on. To create the Gaussian stack, we simply apply a Gaussian filter successively 
+        to an image without downsampling. For demonstration, we apply it to both the apple and the orange:
+    </p>
+
+    <div class="image-col2">
+        <figure>
+            <img src="results/2.3/apple_gauss_stack.png" alt="Apple Gaussian">
+            <figcaption>Apple Gaussian stack (depth of 8)</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.3/orange_gauss_stack.png" alt="Orange Gaussian">
+            <figcaption>Orange Gaussian stack (depth of 8)</figcaption>
+        </figure>
+    </div>
+    
+    <p>
+        The Gaussian stacks are then used to create the Laplacian stacks, which help divide the image into 
+        different frequencies. To create the Laplacian stack, we take the difference between each element in 
+        the Gaussian stack, and subtract it from the next most clear image in the stack. We also keep the bottom image 
+        of the Gaussian stack as the bottom of the Laplacian stack. Here are the min-max normalized Laplacian stacks:
+    </p>
+
+    <div class="image-col2">
+        <figure>
+            <img src="results/2.3/apple_lapl_stack.png" alt="Apple Laplacian">
+            <figcaption>Apple Laplacian stack (depth of 8)</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.3/orange_lapl_stack.png" alt="Orange Laplacian">
+            <figcaption>Orange Laplacian stack (depth of 8)</figcaption>
+        </figure>
+    </div>
+
+    <h2>2.4: Multiresolution Blending</h2>
+
+    <p>
+        Now that we have our Laplacian, we can blend some images. To do so, we create a mask; for the orange and apple, 
+        we use a mask with a simple vertical boundary. We then create a Gaussian stack with this mask (the displayed stack will 
+        have length 15, since that's what I decided on using for the oraple). For my Gaussian stack, I opted to actually create 
+        a length 16 stack, then throw out the original binary mask, because it was drawing a noticable line on my oraple.
+    </p>
+
+    <figure style="max-width: 100%;">
+        <img src="results/2.4/masks.png" alt="Masks Gaussian" style="max-width: 100%;">
+        <figcaption>Mask Gaussian stack (depth of 15)</figcaption>
+    </figure>
+
+    <p>
+        Then, using the stack of masks, and the Laplacian stacks of both the orange and the apple, 
+        we use the following equation to blend:
+    </p>
+    <p>
+        $$LS_l(i, j) = GR_l(i, j) LA_l(i, j) + (1 - GR_l(i, j))LB_l(i, j)$$
+    </p>
+
+    <p>
+        Where $LS$ is the combined stack, $GR$ is the Gaussian stack of masks, $LA, LB$ are the Laplacian stacks, and $l$ is the layer. 
+        In essense, we multiply the first Laplacian stack by the Gaussian stack, the second Laplacian by 1 minus the Gaussian stack (at each element), 
+        and add them together to blend. This is done at each channel level individually. 
+    </p>
+
+    <p>
+        Finally to make the blended image, we add up all layers of the stack for each image channel, then stack image channels to create our final image:
+    </p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/data/apple.jpeg" alt="Apple">
+            <figcaption>Original apple</figcaption>
+        </figure>
+        <figure>
+            <img src="results/data/orange.jpeg" alt="Orange">
+            <figcaption>Original orange</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.4/oraple.png" alt="Oraple">
+            <figcaption>Oraple, using 15 layer stack, Laplacians built using Gaussian stacks with size = 20x20, $\sigma = 10$, and mask size = 50x50, $\sigma = 20$</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        I made three additional blended images shown below.
+    </p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/data/guy.jpg" alt="guy">
+            <figcaption>Some dude</figcaption>
+        </figure>
+        <figure>
+            <img src="results/data/robot.jpg" alt="robot">
+            <figcaption>A robot</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.4/cyborg.png" alt="Cyborg">
+            <figcaption>Cyborg, using same params as oraple</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/data/tiger.jpg" alt="Tiger">
+            <figcaption>Tiger</figcaption>
+        </figure>
+        <figure>
+            <img src="results/data/lion.jpg" alt="Lion">
+            <figcaption>Lion</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.4/liger.png" alt="Liger">
+            <figcaption>Liger, using 8 layer stack, Laplacians built using Gaussian stacks with size = 20x20, $\sigma = 10$, and mask size = 20x20, $\sigma = 5$</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/data/dog.jpg" alt="Dog">
+            <figcaption>Dog with big nose</figcaption>
+        </figure>
+        <figure>
+            <img src="results/data/muffin2.jpg" alt="Muffin">
+            <figcaption>Muffin</figcaption>
+        </figure>
+        <figure>
+            <img src="results/2.4/muffin_dog.png" alt="Muffin dog">
+            <figcaption>Muffin dog, using irregular mask (small box in the center), used 8 layers, but otherwise parameters like oraple/cyborg</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        For the liger (my best result, probably because they line up structurally the best), we can see the final blended stack before being added up 
+        to better understand how we blend at multiple resolutions:
+    </p>
+
+    <figure style="max-width: 100%;">
+        <img src="results/2.4/blended_stack.png" alt="blended Laplacians" style="max-width: 100%;">
+        <figcaption>Blended Laplacian Stack, normalized, for Liger</figcaption>
+    </figure>
+
+    <p>
+        We can see that at higher frequencies on the right, there is minimal blend and more of a strict cutoff, while at the left side 
+        for the lower frequencies, the pictures tend to bleed into one another more. After adding this stack together and clipping values, 
+        we get the liger displayed above.
+    </p>
+</body>
+</html>

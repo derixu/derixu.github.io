@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Project 3</title>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 30px; 
+            padding: 0;  
+        }
+
+        body {
+            font-family: 'Trebuchet MS', sans-serif;
+            word-wrap: break-word; 
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 40px; 
+            margin-bottom: 20px;
+        }
+
+        .image-col2 {
+            display: grid;
+            grid-template-rows: repeat(2, auto);
+            gap: 50px;
+        }
+
+        .image-col2 img {
+            width: 100%;
+        }
+
+        .image-row2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 100px;
+        }
+
+        .image-row2 img {
+            width: 100%;
+        }
+
+        .image-row3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 50px;
+        }
+
+        .image-row3 img {
+            width: 100%;
+        }
+
+        .image-row4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 50px;
+        }
+
+        .image-row4 img {
+            width: 100%;
+        }
+
+        .image-row5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 30px;
+        }
+
+        .image-row5 img {
+            width: 100%;
+        }
+
+        .responsive-figure {
+            width: 100%;
+            height: auto;
+            margin: 20px 0 0 0;
+        }
+
+        .figure-container {
+            width: 100%;
+            max-width: 50vw; 
+            margin: 0 auto 30px auto; 
+        }
+
+        figcaption {
+            text-align: center; /* Center the caption */
+            margin: 0;
+            padding: 0;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <ul class="navbar-links">
+            <a href="../index.html">Return to Homepage</a>
+        </ul>
+    </nav>
+
+    <h1 style="text-align: center">Face Morphing</h1>
+    <h3 style="text-align: center">Derry Xu</h3>
+    <h3 style="text-align: center">CS 180, Fall 2024</h3>
+
+    <h2>Part 1: Defining Correspondences</h2>
+
+    <p>
+        I decided to choose my face and my girlfriend's face for the first three parts,
+        where we're tasked with ultimately creating an animation that morphs one face into 
+        another.
+    </p>
+
+    <p>
+        The first step to doing this was defining a triangle mesh over each face. To 
+        begin, I used the provided 
+        
+        <a href="https://cal-cs180.github.io/fa23/hw/proj3/tool.html"> correspondence tool</a> 
+
+        to create point correspondences between the two faces (such as matching corners of lips, eyelids, etc.).
+    </p>
+
+    <p>
+        After generating the correspondences on 54 different points, the next task was to create the mesh. I did so 
+        using the <code>scipy.spatial</code> function <code>Delaunay</code> to create a Delaunay triangulation based on the 
+        correspondence points.
+    </p>
+
+    <p>
+        To ensure the triangulation was suitable for both images, I averaged the point values for each 
+        correspondence, and used those average values to triangulate. The triangulation was then retroactively applied to the original points 
+        for each image.    
+    </p>
+
+    <p>This ended up giving me the following two triangle meshes:</p>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/triangulation/derry_tri.png" alt="Derry triangulation">
+            <figcaption>Derry triangulation</figcaption>
+        </figure>
+        <figure>
+            <img src="results/triangulation/mary_tri.png" alt="Mary triangulation">
+            <figcaption>Mary triangulation</figcaption>
+        </figure>
+    </div>
+
+    <h2>Part 2: Computing the "Mid-Way Face"</h2>
+
+    <p>
+        After creating the triangulation, the next step was to generate a halfway face between 
+        the two faces. This is done by both warping to two faces into a mid-way shape, and cross-dissolving 
+        the pixel values in the warped faces.
+    </p>
+
+    <p>
+        To warp the faces, we take a weighted average of the correspondence points between the two images, which 
+        gives us a target triangle mesh to warp to. For this section, the weighted average is just a regular average 
+        since we want the exact mid-way face.
+    </p>
+
+    <p>
+        To warp each face to the target mesh, we take each triangle and warp it to its corresponding triangle on the 
+        target mesh. To do so, we use inverse warping. Based on the vertices of the source triangle (a triangle on one of the 
+        images), and the destination triangle (the corresponding triangle on the target mesh), we compute an inverse affine transformation 
+        matrix which maps locations on the destination triangle onto locations on the source triangle.
+    </p>
+
+    <p>
+        Computing the inverse transformation matrix just a matter of solving for the regular transformation matrix (mapping locations on the source to 
+        locations on the destination) by solving a system of linear equations to ensure vertices are mapped properly, then inverting the regulation transformation 
+        matrix.
+    </p>
+
+    <p>
+        In theory, this mapping should let us translate pixel values from the source triangle to locations on the destination triangle, 
+        completing the warp. The issue is that the inverse transformation matrix can't guarantee it lands on an actual pixel (which have integer valued 
+        coordinates). Sometimes it will land in between two pixels, in which case we don't have a pixel value for it.
+    </p>
+
+    <p>
+        The solution is interpolation. Letting each discrete pixel be a point on a 2D grid, we can intepolate decimal valued coordinates using a 2D interpolation, 
+        which is done using <code>scipy.interpolate.RegularGridInterpolator</code>.
+    </p>
+
+    <p>
+        Using interpolation and the inverse transformation matrix, we can fill out the warped triangle with pixel values. By repeating this for each triangle in the 
+        target triangle mesh, we retrieve a warped image.
+    </p>
+
+    <p>
+        After warping both images, the final step is to cross-dissolve the pixel values. For the case of a mid-way face, we can simply take an average of the two pixel 
+        values and round to the nearest whole number (assuming pixels are on a 0-255 scale).
+    </p>
+
+    <p>
+        The warping process allows us to match the structures of the two faces, and the cross-dissolve subsequently blends the two identically structured faces. The result 
+        is the following mid-way face:
+    </p>
+
+    <div class="image-row3">
+        <figure>
+            <img src="results/midway/derry.jpg" alt="Derry Original">
+            <figcaption>Derry</figcaption>
+        </figure>
+        <figure>
+            <img src="results/midway/mary.jpg" alt="Mary Original">
+            <figcaption>Mary</figcaption>
+        </figure>
+        <figure>
+            <img src="results/midway/midway.jpg" alt="Mid-way face">
+            <figcaption>Mid-way face</figcaption>
+        </figure>
+    </div>
+
+    <h2>Part 3: The Morph Sequence</h2>
+
+    <p>
+        Having computed the mid-way face using an inverse affine transformation matrix, interpolation, and cross-dissolving, we can extend the process to get any blended face 
+        partially composed of myself, and partially composed of Mary. 
+    </p>
+
+    <p>
+        The process ends up being very similar. The main difference is that when computing the target triangle mesh, we take a weighted mean of the correspondence points, with weights 
+        corresponding to how much we want one face to influence the structure of the blend. After that, we use the same process of finding an appropriate transformation matrix, and interpolation. 
+    </p>
+
+    <p>
+        The cross-dissolve also changes to be a weighted mean of pixel values dependent on how much we want one face to influence to coloration of the blend. For the purposes of the morph sequence, 
+        I set <code>warp_frac = dissolve_frac</code> and constructed a linear sequence of both the <code>warp_frac</code> and the <code>dissolve_frac</code> from 0 to 1. Technically the two fractions can be set 
+        separately and also changed via a non-linear function for different visual morphing sequences, but I chose to opt for the simplest implementation.
+    </p>
+
+    <p>
+        This resulted in the following morph sequence:
+    </p>
+
+    <div class="figure-container">
+        <img src="results/output.gif" alt="Morph sequence" class="responsive-figure">
+        <figcaption>Derry to Mary, then Mary to Derry</figcaption>
+    </div>
+
+    <h2>Part 4: The "Mean Face" of a Population</h2>
+
+    <p>
+        For this section, we switched our task to calculating the "mean face" of a dataset representative of a population. For this section, I made use of 
+        the <a href="https://fei.edu.br/~cet/facedatabase.html">FEI Face Database</a>. I specifically used their spatially normalized frontal images, which were 
+        a set of 400 images that had been normalized to the same size, alongside their manually labeled correspondences.
+    </p>
+
+    <p>
+        To compute the average shape of the dataset, I simply took all provided correspondence points and averaged them out by correspondence to retain a set of mean points. 
+        Using this mean set, we can again calculate the Delaunay triangulation, and retroactively apply the triangulation to all images in the dataset. 
+    </p>
+
+    <p>
+        Now that we have a mean triangle mesh and triangle meshes for each face in the dataset, we can warp each face to the same strutcure as the mean. Here are some examples of 
+        what that might look like:
+    </p>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/frontalimages/10a.jpg" alt="orig 10">
+            <figcaption>Original</figcaption>
+        </figure>
+        <figure>
+            <img src="results/morphed_avg/10.jpg" alt="morphed 10">
+            <figcaption>Morphed</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/frontalimages/1a.jpg" alt="orig 1">
+            <figcaption>Original</figcaption>
+        </figure>
+        <figure>
+            <img src="results/morphed_avg/1.jpg" alt="morphed 1">
+            <figcaption>Morphed</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/frontalimages/157a.jpg" alt="orig 157">
+            <figcaption>Original</figcaption>
+        </figure>
+        <figure>
+            <img src="results/morphed_avg/157.jpg" alt="morphed 157">
+            <figcaption>Morphed</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Now that we have all of the images stuctured aligned with their mean structure, we can average their pixel values for a mean of the 
+        pixel intensities. With the mean facial stucture and the mean pixel intensity, we get the mean face in the dataset (which is intended 
+        to be sample of the human population, so we get an approximation of the average human face).
+    </p>
+
+    <p>
+        My computed mean face is shown below:
+    </p>
+
+    <div class="figure-container">
+        <img src="results/average/average_face.jpg" alt="Average face" class="responsive-figure">
+        <figcaption>Mean Face</figcaption>
+    </div>
+
+    <p>
+        We can also extend the mean face past morphing and transforming the faces in the dataset. To use the information in the dataset to alter my own 
+        face, I labeled the picture I took of myself with the same correspondences in the same order as the manually labeled dataset images. After doing that 
+        I could also warp my own face to the structure of faces in the dataset, or warp my face to the mean structure, which is what I did.
+    </p>
+
+    <div class="figure-container">
+        <img src="results/average/derry2avg.jpg" alt="Derry mapped to Average face" class="responsive-figure">
+        <figcaption>Derry to Mean</figcaption>
+    </div>
+
+    <p>
+        We can also work in the other direction, and map the mean face to my facial structure. That resulted in the following image:
+    </p>
+
+    <div class="figure-container">
+        <img src="results/average/avg2derry.jpg" alt="Average face mapped to Derry" class="responsive-figure">
+        <figcaption>Mean to Derry</figcaption>
+    </div>
+
+    <p>
+        There some weird artificats around the nose bridge area of the Mean reshaped to my face, but that might be because the triangle mesh for 
+        my face had some narrow triangles, partially due to rough correspondence selection, partially because my face wasn't included in selecting the triangulation.
+    </p>
+
+    <h2>Part 5: Caricatures: Extrapolating From the Mean:</h2>
+
+    <p>
+        Some other interesting things we can do with our previously computed mean is to make caricatures, that is make morphed/blended images that 
+        set <code>warp_frac</code> and <code>dissolve_frac</code> to be greater than 1, or less than 0. This is no long a weighted average of two 
+        images. By doing this, we essentially calculate the "difference" between two images, and add this difference to one of the original images to 
+        emphasize unique qualities of that image.
+    </p>
+
+    <p>
+        For example, letting $C_1$ be the matrix of correspondence points in the first image, and $C_2$ be the matrix of correspondence points in the second 
+        image, our target points are defined as $(1 - \alpha) C_1 + \alpha C_2$, where $\alpha$ is the warp fraction. We can also write this as 
+        $C_1 - \alpha(C_1 - C_2)$. If $\alpha < 0$, then we're essentially adding the difference between $C_1$ and $C_2$, ie. the features of $C_1$ that are different 
+        from $C_2$. A similar argument applies to the cross-dissolve.
+    </p>
+
+    <p>
+        When we set the second image to be the population mean, $C_1 - C_2$ is essentially your most prominent or unique characteristics. 
+        This has the effect of allowing us to emphasize unique qualities of certain images compared to the mean, creating caricatures. Applying this, we can 
+        create a "more Derry" Derry face by emphasizing structural and pixel features that are different in my face than the mean.
+    </p>
+
+    <p>
+        If we reverse the roles and have the mean be image 1 (or set $\alpha > 1$ while the mean is still image 2), we can create an image that represents the mean 
+        with my most prominent features removed, almost like the opposite of me. 
+    </p>
+
+    <p>These two images are shown below:</p>
+
+    <div class="image-row2">
+        <figure>
+            <img src="results/caricature/plus_derry.jpg" alt="derry caricature">
+            <figcaption>More Derry... ouch</figcaption>
+        </figure>
+        <figure>
+            <img src="results/caricature/minus_derry.jpg" alt="minus derry caricature">
+            <figcaption>Less Derry... somehow looks more manly?</figcaption>
+        </figure>
+    </div>
+
+    <h2>Bells and Whistles: Race and Gender Swapping</h2>
+
+    <p>
+        Using the techniques above, we can do some pretty interesting things. One transformation we can make is to change the gender or race of a face. 
+        For this section, I changed my face, and made use of some average faces by gender and race as found <a href="https://leadingpersonality.wordpress.com/2013/09/30/average-faces-of-men-and-women-around-the-world/">here</a> 
+        (my source attributes faceresearch.org, but the link didn't work for me).
+    </p>
+
+    <p>
+        After retrieving the average faces, and rescaling and cropping my image to match their dimensions and rough structure, I was able to define 
+        custom correspondences. After that, it was just a task of applying the same morph developed in Part 3. Here are the results:
+    </p>
+
+    <p>Mean faces:</p>
+
+    <div class="image-row5">
+        <figure>
+            <img src="results/average_races/resized_brazilian_male_avg.jpg" alt="brazilian">
+            <figcaption>Brazilian Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/average_races/resized_french_male_avg.jpg" alt="french">
+            <figcaption>French Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/average_races/resized_filipino_male_avg.jpg" alt="filipino">
+            <figcaption>Filipino Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/average_races/resized_chinese_male_avg.jpg" alt="chinese male">
+            <figcaption>Chinese Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/average_races/resized_chinese_female_avg.jpg" alt="chinese female">
+            <figcaption>Chinese Female</figcaption>
+        </figure>
+    </div>
+
+    <p>Only warping to means:</p>
+
+    <div class="image-row5">
+        <figure>
+            <img src="results/ethnicities/shape/brazilian_male.jpg" alt="brazilian">
+            <figcaption>Brazilian Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/shape/french_male.jpg" alt="french">
+            <figcaption>French Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/shape/filipino_male.jpg" alt="filipino">
+            <figcaption>Filipino Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/shape/chinese_male.jpg" alt="chinese male">
+            <figcaption>Chinese Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/shape/chinese_female.jpg" alt="chinese female">
+            <figcaption>Chinese Female</figcaption>
+        </figure>
+    </div>
+
+    <p>Only cross-dissolving:</p>
+
+    <div class="image-row5">
+        <figure>
+            <img src="results/ethnicities/dissolve/brazilian_male.jpg" alt="brazilian">
+            <figcaption>Brazilian Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/dissolve/french_male.jpg" alt="french">
+            <figcaption>French Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/dissolve/filipino_male.jpg" alt="filipino">
+            <figcaption>Filipino Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/dissolve/chinese_male.jpg" alt="chinese male">
+            <figcaption>Chinese Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/dissolve/chinese_female.jpg" alt="chinese female">
+            <figcaption>Chinese Female</figcaption>
+        </figure>
+    </div>
+
+    <p>Full morph:</p>
+
+    <div class="image-row5">
+        <figure>
+            <img src="results/ethnicities/morph/brazilian_male.jpg" alt="brazilian">
+            <figcaption>Brazilian Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/morph/french_male.jpg" alt="french">
+            <figcaption>French Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/morph/filipino_male.jpg" alt="filipino">
+            <figcaption>Filipino Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/morph/chinese_male.jpg" alt="chinese male">
+            <figcaption>Chinese Male</figcaption>
+        </figure>
+        <figure>
+            <img src="results/ethnicities/morph/chinese_female.jpg" alt="chinese female">
+            <figcaption>Chinese Female</figcaption>
+        </figure>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project 4</title>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 30px;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Trebuchet MS', sans-serif;
+            word-wrap: break-word;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+
+        .image-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Dynamically create columns */
+            gap: 20px; /* Space between images */
+            justify-items: center; /* Center images horizontally */
+            align-items: center; /* Center images vertically */
+            width: 100%; /* Full width of the container */
+            margin: 0 auto; /* Center the entire grid */
+        }
+
+        figure {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .image-row img {
+            max-height: 30vw; /* Set maximum height */
+            width: auto; /* Maintain aspect ratio */
+        }
+
+        figcaption {
+            margin-top: 10px;
+            font-size: 1rem;
+            color: #555;
+        }
+    </style>
+
+</head>
+<body>
+
+    <nav class="navbar">
+        <ul class="navbar-links">
+            <a href="../index.html">Return to Homepage</a>
+        </ul>
+    </nav>
+
+    <h1 style="text-align: center">[Auto]Stitching Photo Mosaics</h1>
+    <h3 style="text-align: center">Derry Xu</h3>
+    <h3 style="text-align: center">CS 180, Fall 2024</h3>
+
+    <h2>Part 1: Manually Mosaicing Photos</h2>
+
+    <p>
+        In the first section of this project, we were tasked with recovering homographies from one image to another based on manually defined correspondence points, then using these homographies to both 
+        rectify and stitch together Mosaics of different images.
+    </p>
+
+    <p>
+        Below are the images I used for the rectification portion of the project:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/art.jpg" alt="hanging art">
+            <figcaption>Hanging art viewed from an angle</figcaption>
+        </figure>
+        <figure>
+            <img src="data/gundam.jpg" alt="gundam">
+            <figcaption>Gundam poster viewed from an angle</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        And here are the images I used for the mosaicing portion of the project:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/pano1/im1.jpg" alt="im1">
+            <figcaption>More hanging art - img1</figcaption>
+        </figure>
+        <figure>
+            <img src="data/pano1/im2.jpg" alt="im2">
+            <figcaption>More hanging art - img2</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/pano2/im1.jpg" alt="im1">
+            <figcaption>Housemate's desk - img1</figcaption>
+        </figure>
+        <figure>
+            <img src="data/pano2/im2.jpg" alt="im2">
+            <figcaption>Housemate's desk - img2</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/pano3/im1.jpg" alt="im1">
+            <figcaption>Housemate's waterbottle - img1</figcaption>
+        </figure>
+        <figure>
+            <img src="data/pano3/im2.jpg" alt="im2">
+            <figcaption>Housemate's waterbottle - img2</figcaption>
+        </figure>
+    </div>
+
+    <h3>Recovering Homographies</h3>
+
+    <p>
+        The first step in both rectification and in mosaicing is recovering homographies. To do so we define several correspondence points manually, for this I used a provided 
+        <a href="https://cal-cs180.github.io/fa23/hw/proj3/tool.html"> correspondence tool</a>. 
+    </p>
+
+    <p>
+        Our goal is to find a 3x3 matrix of the form:
+
+        $$
+        H = \begin{pmatrix}
+        a & b & c \\
+        d & e & f \\
+        g & h & 1
+        \end{pmatrix}
+        $$
+
+        Such that for each correspondence point the following holds:
+
+        $$
+        H 
+        \begin{pmatrix}
+        x \\
+        y \\
+        1 
+        \end{pmatrix} 
+        = 
+        \begin{pmatrix}
+        wx' \\
+        wy' \\
+        w 
+        \end{pmatrix}
+        $$
+
+        Where $x, y$ are the coordinates of the starting point, $x', y'$ are the coordinates of the ending point, and $w$ is some scaling factor (which we will divide out to find the true projected coordinates).
+    </p>
+
+    <p>
+        Then, for each point we can expand out the above condition:
+
+        $$
+
+            \begin{cases}
+                ax + by + c = wx' \\
+                dx + ey + f = wy' \\
+                gx + hy + 1 = w \\
+            \end{cases}
+
+        $$
+
+        Then, substituting $w = gx + hy + 1$, we get:
+
+        $$
+        \begin{aligned}
+            \begin{cases}
+                ax + by + c = (gx + hy + 1)x' \\
+                dx + ey + f = (gx + hy + 1)y' \\
+            \end{cases}\\
+
+            \begin{cases}
+                ax + by + c = gxx' hyx' + x' \\
+                dx + ey + f = gxy' + hyy' + y' \\
+            \end{cases}\\
+
+            \begin{cases}
+                ax + by + c - gxx' - hyx' = x' \\
+                dx + ey + f - gxy' - hyy' = y' \\
+            \end{cases}
+        \end{aligned}
+        $$
+
+        Since we know $x, y, x', y'$ for each correspondence, our task is to find values for $a$ to $h$. Since we'll have many correspondences (at least 4 to make the system solvable), we cannot get an exact solution, but we can use 
+        least squares to get an approximate solution.
+
+        We can then use <code>numpy.linalg.lstsq</code> to approximate the homography matrix after rewriting the above equations in matrix form, and stacking the matrices for correspondences.
+    </p>
+
+    <h3>Warping Images</h3>
+
+    <p>
+        To warp images using homographies, we use a similar process to project 3. After defining the corners of the image we are warping, we can apply the homography matrix to those corners to retreive the corners of the warped image. 
+        These warped coordinates are often negative, which is an invalid index for an array representation of the image, so we end up needing to shift the corners appropriately.
+    </p>
+
+    <p>
+        Obtaining the corners of the warped image allow us to use <code>skimage.draw.polygon</code> to retrieve all of the discrete points within the warped image. We can then use an inverse warp to fill out the pixel values for each of the points within 
+        the final polygon. More specifically, we compute the inverse of the homography matrix, map points in the warped image back to locations in the original image (being sure to account for $w$!), then interpolate pixel values since the inverse warped location 
+        may lie between pixels.
+    </p>
+
+    <p>
+        The above generally outlines the warp procedure. After implmenting it, we're ready to rectify.
+    </p>
+
+    <h3>Rectification</h3>
+
+    <p>
+        To rectify an image, we manually define correspondences between the original image (specifically the corners of whatever we want to rectify) and a rectangle we manually define. The results are shown below:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/art.jpg" alt="orig art">
+            <figcaption>Hanging art viewed from an angle</figcaption>
+        </figure>
+        <figure>
+            <img src="results/rectify/art.jpg" alt="rectified art">
+            <figcaption>Hanging art rectified, corners mapped to a 600x500 pixel rectangle</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/gundam.jpg" alt="orig gundam">
+            <figcaption>Gundam poster viewed from an angle</figcaption>
+        </figure>
+        <figure>
+            <img src="results/rectify/gundam.jpg" alt="rectified gundam">
+            <figcaption>Gundam poster rectified, corners mapped to a 500x400 pixel rectangle</figcaption>
+        </figure>
+    </div>
+
+    <h3>Mosaicing</h3>
+
+    <p>
+        The final step of the first major section of this project was to mosaic images together. The images for mosaicing shown above were taking from one constant location, changing the viewing angle between images, while leaving overlap. 
+        The overlap allowed me to define correspondences between points in the two images (points that were on top of the same visual object but were different in pixel locations because of the viewing angle change).
+    </p>
+
+    <p>
+        After defining these correspondences, warping one image to the other using the above method on warping would match up the correspondences as best as the homography could. The only added consideration was the shifts. Since sometimes we would need 
+        to shift the first image to prevent negative coordinates, the second image would need to be shifted as well.
+    </p>
+
+    <p>
+        Warping and shifting completed, we have two images which overlay well structurally, but need to be blended. I implemented two different blending techniques. The first was a linear gradient blend, where the overlapping regions between the two images 
+        after warping had either a horizontal or vertical gradient for $\alpha$ values, ie. for pixels that were only represented by image 1, $\alpha = 1$, for pixels that were only represented by image 2, $\alpha = $0, but in the overlapping region, images to 
+        the left/top would have a greater $\alpha$ value, and gradually move to $0$ as they moved right/down.
+    </p>
+
+    <p>
+        The other blending technique was a two band blend. In this method, each image is broken into a high pass and low pass image. The high pass images are blended using a hard blend, and the low pass images are blended more "smoothly".
+    </p>
+
+    <p>
+        More specifically, we defined a distance transform for image 1 and another for image 2. These are arrays of the same shape as the images, where each element represents the distance the corresponding element/pixel of the image to a "background pixel", 
+        or a pixel of value 0. This has the effect of creating a mask that has high values within the center of the polygon representing the warped image, and gradually lower values as you get closer to the edge of the polygon
+    </p>
+
+    <p>
+        We use these distance transforms (after normalization) as $\alpha$ weights when blending the low passed images. For the high passed images, we defined a mask by the maximum value of the distance transforms. If at a certain pixel, the distance transform for image 1 has a 
+        higher value than the distance transform for image 2, in the high pass blend we will take the pixel from image 1. The same holds in reverse if the distance transform for image 2 is greater.
+    </p>
+
+    <p>
+        The final thing of note is that before the entire process of blending, we would erode the masks representing the locations of each warped image within the entire array. This is because without erosion, the Gaussian blur ends up picking up on noise 
+        from the background pixels, leading to strange dark artifacts in the final blend. The results of each mosaicing + each blending technique are shown below.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/pano1/linear.jpg" alt="linear">
+            <figcaption>Linear blended hanging image panorama</figcaption>
+        </figure>
+        <figure>
+            <img src="results/pano1/twoband.jpg" alt="twoband">
+            <figcaption>Two band blended hanging image panorama</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/pano2/linear.jpg" alt="linear">
+            <figcaption>Linear blended desk panorama</figcaption>
+        </figure>
+        <figure>
+            <img src="results/pano2/twoband.jpg" alt="twoband">
+            <figcaption>Two band blended desk panorama</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/pano3/linear.jpg" alt="linear">
+            <figcaption>Linear blended waterbottle panorama</figcaption>
+        </figure>
+        <figure>
+            <img src="results/pano3/twoband.jpg" alt="twoband">
+            <figcaption>Two band blended waterbottle panorama</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Both blending techniques ended up having some artifacts. The hanging image seemed to perform better with the linear blend, likely because the linear blend is extremely effective on uncomplicated backgrounds. However, for a more complicated 
+        mosaic, the two band ended up having the best effect, though there are still some artifacts (top of the left computer screen in the desk example, and the cut off text on some stickers in the water bottle example).
+    </p>
+</body>
+</html>

@@ -64,6 +64,17 @@
             font-size: 1rem;
             color: #555;
         }
+
+        .image-container {
+            width: 50vw;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        img {
+            width: 100%;
+            height: auto;
+        }
     </style>
 
 </head>
@@ -135,6 +146,17 @@
         <figure>
             <img src="data/pano3/im2.jpg" alt="im2">
             <figcaption>Housemate's waterbottle - img2</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/pano4/im1.jpg" alt="im1">
+            <figcaption>University Ave - img1</figcaption>
+        </figure>
+        <figure>
+            <img src="data/pano4/im2.jpg" alt="im2">
+            <figcaption>University Ave - img2</figcaption>
         </figure>
     </div>
 
@@ -335,5 +357,281 @@
         Both blending techniques ended up having some artifacts. The hanging image seemed to perform better with the linear blend, likely because the linear blend is extremely effective on uncomplicated backgrounds. However, for a more complicated 
         mosaic, the two band ended up having the best effect, though there are still some artifacts (top of the left computer screen in the desk example, and the cut off text on some stickers in the water bottle example).
     </p>
+
+    <h1>Auto-stitching</h1>
+
+    <p>
+        In this section, we implement methods which allow us to automatically define correspondence points, rather than point and click correspondences between two images. The process will be illustrated on the images of 
+        University Ave, and at the end the images for the other mosaics will also be shown.
+    </p>
+
+    <h2>
+        Harris Edge Detector
+    </h2>
+
+    <p>
+        To begin, we use a Harris edge detector to find potential points of interest. Using the provided code, and appropriately setting the <code>min_distance</code> parameter to limit the number of 
+        identified points to around 2000, we create a set of interest points at which we may potentially form correspondences, along with a matrix that represents the corner strength of every point in the image. 
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/street/hpoints1.jpg" alt="hpoints">
+            <figcaption>Image 1: Harris points overlayed with street image ($n = 2241$), min_dist $= 15$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/street/hmat1.jpg" alt="hmatrix">
+            <figcaption>Image 1: Harris matrix of street image</figcaption>
+        </figure>
+    </div>
+
+    <h2>
+        Adaptive Non-Maximal Suppression
+    </h2>
+
+    <p>
+        Harris points give us a good start, but provide a lot of corners, many of which are not particularly "high quality" corners that correspond visually to some real object. To find a stronger subset of these corners, we can 
+        use a simplified version of a technique from <a href="https://inst.eecs.berkeley.edu/~cs180/fa24/hw/proj4/Papers/MOPS.pdf" target="_blank">Multi-Image Matching using Multi-Scale Oriented Patches</a>, called adaptive non-maximal suppression, or ANMS. 
+        The main idea is to define some radius $r$, and at each Harris point evaluate whether or not that point is has the maximum corner strength value within a circle with that radius.
+    </p>
+
+    <p>
+        The paper also points out a different way of observing this problem, rather than setting a radius and finding the maximums, we can find the largest radius value for each Harris point such that it remains the maximum within that circle. This radius value 
+        corresponds to the largest $r$ we could chooose and still have the point remain unsuppressed.
+    </p>
+
+    <p>
+        This radius is also defined by the closest neighbor to our point of interest that has a larger corner strength value than our point of interest, 
+        since exactly when that neighbor is within the bounds of the circle, our point of interest ceases to be a local maxima and is suppressed. This special radius value is dubbed the "minimum suppression radius" by the authors, and is formally defined for each point indexed by $i$ as:
+
+        $$r_i = \min |x_i - x_j|, \text{ s.t } f(x_i) < c f(x_j), x_j \in \mathcal{I}$$
+
+        Where $|x_i - x_j|$ represents the distance between $x_i$ and $x_j$, $f(\cdot)$ is the corner strength function, and $\mathcal{I}$ is the set of all Harris points. $c$ is an additional parameter that controls the robust-ness of the suppression, by setting $c$ to be a lower value, 
+        we force features to be a decent amount smaller than its neighbor for that neighbor to set the radius value.
+    </p>
+
+    <p>
+        These radii then also rank the order in which each point is added to our unsuppressed set as $r$ decreases from infinity. At $r = \infty$, only the global maximum is included. As we decrease $r$, we "add" new points which are local minima within radius $r$. 
+        So finding the $n$ points with the $n$ greatest $r_i$ values is equivalent to automatically setting an $r$ value to retrieve $n$ points.
+    </p>
+
+    <p>
+        Long story short, instead of testing out different $r$ values, we can actually just specify how many points we'd like to suppress to, which is convenient!
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/street/anms_points1.jpg" alt="anms1">
+            <figcaption>Image 1: ANMS unsuppressed points ($n = 500$), $c=0.9$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/street/anms_points1.jpg" alt="anms2">
+            <figcaption>Image 2: ANMS unsuppressed points ($n = 500$), $c=0.9$</figcaption>
+        </figure>
+    </div>
+
+    <h2>Finding Feature Descriptors</h2>
+
+    <p>
+        Now that we have a set of points that we reasonably believe can represent real visual features, we would like to describe each one of them (so we can match points between our stitched images later). To do so, we take 40x40 axis-aligned chunks around each unsuppressed 
+        point, apply a Gaussian filter (to prevent aliasing), and downsample the chunk to an 8x8 pixel chunk. This chunk, when flattened to a length 64 vector and normalized to mean 0, std 1, is our feature vector for that point, representing the general visual information surrounding that point.
+    </p>
+
+    <div class="image-container">
+        <img src="results/auto/street/feats1.jpg" alt="feats">
+        <figcaption>Image 1: Top 64 features, unnormalized, $c=0.9$</figcaption>
+    </div>
+
+    <h2>Matching Features</h2>
+
+    <p>
+        After creating features for all $n$ points we have after ANMS on both images we are trying to find correspondences for, we can begin matching features between images. To do so, we make use of Lowe's trick. We first calculate the pairwise L2 distances between all possible
+        combinations of features from image 1 and features from image 2. Each point on image 1 has a nearest neighbor on image 2, this is our potential match. However, we want this match to be significant, and to check this we look at the second nearest neighbor of the point of interest. 
+        If this distance is also small, then we can't be certain our original potential match is actually correct, and so we throw it out.
+    </p>
+
+    <p>
+        In practice, we compute the ratio between the nearest neighbor distance and the second nearest neighbor distance, and if that ratio is less than our threshold (ie. the distance to the nearest neighbor is a good amount shorter than the distance to the second nearest neighbor), then we 
+        keep the match. Otherwise we throw it out. Thus, the smaller the threshold, the more strict we are on potential matches.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/street/feat_match_points1.jpg" alt="featmatch1">
+            <figcaption>Image 1: Feature matched points using Lowe's ($n = 44$), threshold $=0.3$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/street/feat_match_points2.jpg" alt="featmatch2">
+            <figcaption>Image 2: Feature matched points using Lowe's ($n = 44$), threshold $=0.3$</figcaption>
+        </figure>
+    </div>
+
+    <h2>RANSAC: Robust Feature Matching</h2>
+
+    <p>
+        At this point, a visual inspection of the remaining feature matches shows that we have a lot of good correspondences. The issue is we still have a few points which are completely off, and would ruin any computed homography if they were included (for example, the point under the street lamp in 
+        image 1 above. The street lamp doesn't even show up in image 2.)
+    </p>
+
+    <p>
+        To make of feature matches fully robust, we use a Random Sample Consensus, or RANSAC. For a set number of iterations, in each iteration, we take a random sample of 4 feature matches, and use them to compute a homography from image 1 to image 2. That homography is then applied to all remaining 
+        potential matched points in image 1. This retrieves the hypothetical points our correspondences would be mapped to using this homography, and by comparing them to their actual correspondence values, we can see how well the computed homography maps all of our potential correspondences.
+    </p>
+
+    <p>
+        This allows us to create an inlier set, a set of points for which the homography warps close to the corresponding point on image 2, with a pixel distance below some threshold we manually set. Conducting this many times and tracking the largest inlier set gives a "group majority" of points which can 
+        cooperate with one another for a potential homography. This inlier set then becomes our set of final correspondences.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/street/ransac_points1.jpg" alt="ransac1">
+            <figcaption>Image 1: RANSAC matched points ($n = 27$), threshold $=5$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/street/ransac_points2.jpg" alt="ransac2">
+            <figcaption>Image 2: RANSAC matched points ($n = 27$), threshold $=5$</figcaption>
+        </figure>
+    </div>
+
+    <h2>Finishing Up</h2>
+
+    <p>
+        With these defined correspondences, we can use our code from Part 1 to compute a homography and blend the warped images. For the University Ave. Example, that results in the following mosaic:
+    </p>
+
+    <div class="image-container">
+        <img src="results/auto/street/st_pano.jpg" alt="pano">
+        <figcaption>University Ave. Mosaic</figcaption>
+    </div>
+
+    <h2>Other Examples</h2>
+
+    <h3>Housemate's Desk:</h3>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/desk/hpoints1.jpg" alt="hpoints">
+            <figcaption>Image 1: Harris points overlayed with desk image ($n = 2696$), min_dist $= 10$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/desk/hmat1.jpg" alt="hmatrix">
+            <figcaption>Image 1: Harris matrix of desk image</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/desk/anms_points1.jpg" alt="anms1">
+            <figcaption>Image 1: ANMS unsuppressed points ($n = 500$), $c = 0.9$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/desk/anms_points1.jpg" alt="anms2">
+            <figcaption>Image 2: ANMS unsuppressed points ($n = 500$), $c = 0.9$</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-container">
+        <img src="results/auto/desk/feats1.jpg" alt="feats">
+        <figcaption>Image 1: Top 64 features, unnormalized, $c = 0.9$</figcaption>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/desk/feat_match_points1.jpg" alt="featmatch1">
+            <figcaption>Image 1: Feature matched points using Lowe's ($n = 63$), threshold $=0.4$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/desk/feat_match_points2.jpg" alt="featmatch2">
+            <figcaption>Image 2: Feature matched points using Lowe's ($n = 63$), threshold $=0.4$</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/desk/ransac_points1.jpg" alt="ransac1">
+            <figcaption>Image 1: RANSAC matched points ($n = 14$), threshold $=4$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/desk/ransac_points2.jpg" alt="ransac2">
+            <figcaption>Image 2: RANSAC matched points ($n = 14$), threshold $=4$</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-container">
+        <img src="results/auto/desk/desk_pano.jpg" alt="pano">
+        <figcaption>Housemate's Desk Mosaic</figcaption>
+    </div>
+
+    <h3>Housemate's Waterbottle:</h3>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/waterbottle/hpoints1.jpg" alt="hpoints">
+            <figcaption>Image 1: Harris points overlayed with waterbottle image ($n = 2370$), min_dist $= 5$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/waterbottle/hmat1.jpg" alt="hmatrix">
+            <figcaption>Image 1: Harris matrix of waterbottle image</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/waterbottle/anms_points1.jpg" alt="anms1">
+            <figcaption>Image 1: ANMS unsuppressed points ($n = 500$), $c = 0.7$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/waterbottle/anms_points1.jpg" alt="anms2">
+            <figcaption>Image 2: ANMS unsuppressed points ($n = 500$), $c = 0.7$</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-container">
+        <img src="results/auto/waterbottle/feats1.jpg" alt="feats">
+        <figcaption>Image 1: Top 64 features, unnormalized, $c = 0.7$</figcaption>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/waterbottle/feat_match_points1.jpg" alt="featmatch1">
+            <figcaption>Image 1: Feature matched points using Lowe's ($n = 41$), threshold $=0.5$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/waterbottle/feat_match_points2.jpg" alt="featmatch2">
+            <figcaption>Image 2: Feature matched points using Lowe's ($n = 41$), threshold $=0.5$</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="results/auto/waterbottle/ransac_points1.jpg" alt="ransac1">
+            <figcaption>Image 1: RANSAC matched points ($n = 24$), threshold $=5$</figcaption>
+        </figure>
+        <figure>
+            <img src="results/auto/waterbottle/ransac_points2.jpg" alt="ransac2">
+            <figcaption>Image 2: RANSAC matched points ($n = 24$), threshold $=5$</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-container">
+        <img src="results/auto/waterbottle/wb_pano.jpg" alt="pano">
+        <figcaption>Housemate's Waterbottle Mosaic</figcaption>
+    </div>
+
+    <h1>Conclusion</h1>
+
+    <p>
+        The coolest thing I learned from this project was the automatic feature detection and matching portion 4B. I though the paper about ANMS was pretty interesting, especially how they explained 
+        the duality between the more conceptually simpler way of thinking about finding local maxima (set a radius first, then find maxima), and the more convenient way of thinking about it (essentially 
+        organize the points by "local strength").
+    </p>
+
+    <p>
+        I also found the whole process of seeing each step build up particularly cool. We began with Harris corner detection points, use ANMS to whittle it down to some local maxima, then use feature matching and Lowe's trick 
+        to further narrow down the possible correspondence points, and finally use RANSAC to double check those correspondences. Each step contributed a bit to my laptop being able to identify the same features using this process as I could just 
+        using my eyes to look at the images.
+    </p>
+
 </body>
 </html>

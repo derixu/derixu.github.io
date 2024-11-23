@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project 4</title>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 30px;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Trebuchet MS', sans-serif;
+            word-wrap: break-word;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+
+        .image-row img {
+            height: 20vw;
+            width: auto;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0px; 
+            justify-items: center; 
+            object-fit: cover;
+            align-items: center; 
+            width: 100%; 
+            margin: auto; 
+        }
+
+        .image-row-long {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0px;
+            justify-items: center;
+            object-fit: cover;
+            align-items: center;
+            width: 100%;
+            margin: auto;
+        }
+
+        .image-row-long img {
+            height: 12vw;
+            width: auto;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-row-long figcaption {
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .image-row-tall img {
+            height: 60vw;
+            width: auto;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-row-tall {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0px; 
+            justify-items: center; 
+            object-fit: cover;
+            align-items: center; 
+            width: 100%; 
+            margin: auto; 
+        }
+
+
+
+        figure {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        figcaption {
+            margin-top: 10px;
+            font-size: 1rem;
+            color: #555;
+        }
+
+        .image-container {
+            width: 50vw;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        img {
+            width: 100%;
+            height: auto;
+        }
+    </style>
+
+</head>
+<body>
+
+    <nav class="navbar">
+        <ul class="navbar-links">
+            <a href="../index.html">Return to Homepage</a>
+        </ul>
+    </nav>
+
+    <h1 style="text-align: center">Fun With Diffusion Models!</h1>
+    <h3 style="text-align: center">Derry Xu</h3>
+    <h3 style="text-align: center">CS 180, Fall 2024</h3>
+
+    <h2>Part 1: The Power of Diffusion Models</h2>
+
+    <p>
+        During this part of the project, we experiemented with pre-trained diffusion models, more specifically the DeepFloyd IF diffusion model and its denoisers.
+    </p>
+
+    <h3>Trying out DeepFloyd</h3>
+
+    <p>
+        To begin the project, we generate three images using DeepFloyd's two stages using different numbers of inference steps, just to get an idea for the quality of outputs 
+        we might expected from DeepFloyd, and how the number of inference steps affects quality. For reproducibility, for the entire first section of the project we use <b>random seed 42</b>.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/deepfloyd/snow_inf20.png" alt="snow">
+            <figcaption>"An oil painting of a snowy mountain village" - 20 inference steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/deepfloyd/man_inf20.png" alt="man">
+            <figcaption>"A man wearing a hat" - 20 inference steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/deepfloyd/rocket_inf10.png" alt="rocket1">
+            <figcaption>"A rocket ship" - 10 inference steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/deepfloyd/rocket_inf20.png" alt="rocket2">
+            <figcaption>"A rocket ship" - 20 inference steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/deepfloyd/rocket_inf40.png" alt="rocket3">
+            <figcaption>"A rocket ship" - 40 inference steps</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        In general, it seemed more detailed prompts gave better results. In my opinion, the toil painting looks best, while  the rocket ship looks worst, 
+        which makes sense given the detail given to prompt the oil painting (painting style, specifically oil painting style), and the lack of detail given 
+        to the rocket prompt. Also the number of inference steps didn't necessarily increase how good the rocket looked, but added a lot of complexity to the image: 
+        more details, background, etc.
+    </p>
+
+    <h3>Sampling Loops</h3>
+
+    <p>After trying out the out-of-the-box DeepFloyd model, we specifically looked at the U-net denoising model that DeepFloyd depends on. </p>
+
+    <h4>Forward Process</h4>
+
+    <p>
+        To begin, I implemeted the forward process of diffusion, where we gradually add noise to a clean image. 
+        The amount of noise is dictated by noise coefficients provided by DeepFloyd:
+    </p>
+
+    <p>
+        $$
+        x_t = \sqrt{\bar \alpha_t} x_0 + \sqrt{1 - \bar \alpha_t} \epsilon \quad \text{where } \epsilon \sim N(0, I)    
+        $$
+
+        Where $x_t$ is the noised image at timestep $t$, $x_0$ is the clean image, $\bar \alpha_t$ is the noise coefficient for timestep $t$, and $\epsilon$ is random noise.
+    </p>
+
+    <p>
+        Below are some examples of the noising process for a test image over <code>T = 1000</code> iterations.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original test image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_250.png" alt="250">
+            <figcaption>Image after $t = 250$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_500.png" alt="500">
+            <figcaption>Image after $t = 500$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_750.png" alt="750">
+            <figcaption>Image after $t = 750$ noising steps</figcaption>
+        </figure>
+    </div>
+
+    <h4>Classical Denoising</h4>
+
+    <p>
+        Having generated our noisy images, we can start playing around with different ways of denoising them. Earlier in the class we learned about using a Gaussian low pass filter to denoise images.
+        Before using any of the fancier denoisers, we can give the Gaussian blur a try:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original test image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_250.png" alt="250">
+            <figcaption>Image after $t = 250$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/gaussian_blur/gauss_250.png" alt="gauss">
+            <figcaption>Noisy image passed through Gaussian filter</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original test image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_500.png" alt="500">
+            <figcaption>Image after $t = 500$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/gaussian_blur/gauss_500.png" alt="gauss">
+            <figcaption>Noisy image passed through Gaussian filter</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original test image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_750.png" alt="750">
+            <figcaption>Image after $t = 750$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/gaussian_blur/gauss_750.png" alt="gauss">
+            <figcaption>Noisy image passed through Gaussian filter</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Evidently, the performance is not very strong.
+    </p>
+
+    <h4>One-Step Denoising</h4>
+
+    <p>
+        Now, we can try directly passing the noisy image through DeepFloyd's pretrained U-net denoiser.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original test image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_250.png" alt="250">
+            <figcaption>Image after $t = 250$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/one_step_denoise/cleaned250.png" alt="onestep">
+            <figcaption>Noisy image passed through U-net </figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original test image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_500.png" alt="500">
+            <figcaption>Image after $t = 500$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/one_step_denoise/cleaned500.png" alt="onestep">
+            <figcaption>Noisy image passed through U-net</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original test image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/imnoisy_750.png" alt="750">
+            <figcaption>Image after $t = 750$ noising steps</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/one_step_denoise/cleaned750.png" alt="onestep">
+            <figcaption>Noisy image passed through U-net</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Evidently the performance is significantly better, but at higher noise levels, the original image tends to be somewhat lost.
+    </p>
+
+    <h4>Iterative Denoising</h4>
+
+    <p>
+        In practice, diffusion models denoise iteratively rather than in one shot. To speed things up and save on computation, we use a strided iterative denoising process, 
+        where instead of denoising through all $T = 1000$ timesteps, we can skip a few steps by defining a new set of "strided" timesteps that correspond to certain intermediate noisy images.
+    </p>
+
+    <p>
+        Then, when updating from the $t$th image in the strided set to the next image (slightly more clean): the $t'$th image, we can use the following formula:
+
+        $$
+        x_{t'} = \frac{\sqrt{\hat \alpha_{t'}} \beta_t}{1 - \hat \alpha_t} x_0 + \frac{\sqrt{\alpha_t} (1 - \bar \alpha_{t'})}{1 - \bar \alpha_t} x_t + v_\sigma
+        $$
+
+        Where $\alpha_t = \frac{\bar \alpha_t}{\bar \alpha_{t'}}$, $\beta_t = 1 - \alpha_t$, and $v_\sigma$ is some random noise. The rest of the variables are the same as they 
+        were in the previous equation in the forward process.
+    </p>
+
+    <p>
+        Implementing the iterative process gives us the following results:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/iterative_denoise/stride1.png" alt="t690">
+            <figcaption>Noisy image at $t = 690$</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/iterative_denoise/stride2.png" alt="t540">
+            <figcaption>Noisy image at $t = 540$</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/iterative_denoise/stride3.png" alt="t390">
+            <figcaption>Noisy image at $t = 390$</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/iterative_denoise/stride4.png" alt="t240">
+            <figcaption>Noisy image at $t = 240$</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/iterative_denoise/stride5.png" alt="t90">
+            <figcaption>Noisy image at $t = 90$</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Comparing each of the denoising methods:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="clean">
+            <figcaption>Original image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/iterative_denoise/gauss.png" alt="gauss">
+            <figcaption>Gaussian blurred image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/iterative_denoise/one_step.png" alt="onestep">
+            <figcaption>One step denoised image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/iterative_denoise/final.png" alt="iterative">
+            <figcaption>Iterative denoising using stride = $30$</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        It seems clear that iterative denoising performed the best (starting from the noisy image at $t = 990$)
+    </p>
+
+    <h4>Diffusion Model Sampling</h4>
+
+    <p>
+        Our iterative denoiser also can work as an image generator; we just pass in truly random noise, conditioned on the prompt "A high quality image". Here are 
+        five sample images from this process:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/diffusion/im1.png" alt="1">
+            <figcaption>Sample 1</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/diffusion/im2.png" alt="2">
+            <figcaption>Sample 2</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/diffusion/im3.png" alt="3">
+            <figcaption>Sample 3</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/diffusion/im4.png" alt="4">
+            <figcaption>Sample 4</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/diffusion/im5.png" alt="5">
+            <figcaption>Sample 5</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Some of these images look decent, like sample 5, but generally they aren't great in quality.
+    </p>
+
+    <h4>Classifier-Free Guidance (CFG)</h4>
+
+    <p>
+        To improve the images, we can use a technique called Classifier-Free Guidance, where we generate both a conditional and unconditional noise estimate, and 
+        use the two of them to generate a final noise estimate using the formula:
+
+        $$\epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u)$$
+
+        And setting $\gamma$ to be greater than 1, in which case we skew our noise estimate to the difference beweetn the conditioned and unconditioned noise estimate. The 
+        concept seems pretty similar to the caricutures idea in a previous project.
+    </p>
+
+    <p>
+        Using Classifier-Free Guidance with our iterative denoiser, we can produce some better quality photos:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/cfg/im1.png" alt="1">
+            <figcaption>Sample 1</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/cfg/im2.png" alt="2">
+            <figcaption>Sample 2</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/cfg/im3.png" alt="3">
+            <figcaption>Sample 3</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/cfg/im4.png" alt="4">
+            <figcaption>Sample 4</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/cfg/im5.png" alt="5">
+            <figcaption>Sample 5</figcaption>
+        </figure>
+    </div>
+
+    <h4>Image-to-image Translation</h4>
+
+    <p>
+        Now that we have our cfg-iterative denoiser, we can do some pretty neat things with it, such as editing a photo. The idea is to add some noise to the original 
+        photo using our forward process, then denoise the noisy photo to get a new photo. The more noise we add, the less the end photo will resemble our original photo at all. 
+        Here are a few examples:
+    </p>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/im2im/test/start_idx1.png" alt="1">
+            <figcaption>Start index = 1 (Most noise added)</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/test/start_idx2.png" alt="1">
+            <figcaption>Start index = 3</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/test/start_idx3.png" alt="1">
+            <figcaption>Start index = 5</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/test/start_idx4.png" alt="1">
+            <figcaption>Start index = 7</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/test/start_idx5.png" alt="1">
+            <figcaption>Start index = 10</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/test/start_idx6.png" alt="1">
+            <figcaption>Start index = 20 (Least noise added)</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/noisy_imgs/clean.png" alt="1">
+            <figcaption>Original image</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/im2im/xbox/start_idx1.png" alt="1">
+            <figcaption>Start index = 1 (Most noise added)</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/xbox/start_idx2.png" alt="1">
+            <figcaption>Start index = 3</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/xbox/start_idx3.png" alt="1">
+            <figcaption>Start index = 5</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/xbox/start_idx4.png" alt="1">
+            <figcaption>Start index = 7</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/xbox/start_idx5.png" alt="1">
+            <figcaption>Start index = 10</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/xbox/start_idx6.png" alt="1">
+            <figcaption>Start index = 20 (Least noise added)</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/xbox/xbox.png" alt="1">
+            <figcaption>Original image</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/im2im/shoe/start_idx1.png" alt="1">
+            <figcaption>Start index = 1 (Most noise added)</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/shoe/start_idx2.png" alt="1">
+            <figcaption>Start index = 3</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/shoe/start_idx3.png" alt="1">
+            <figcaption>Start index = 5</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/shoe/start_idx4.png" alt="1">
+            <figcaption>Start index = 7</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/shoe/start_idx5.png" alt="1">
+            <figcaption>Start index = 10</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/shoe/start_idx6.png" alt="1">
+            <figcaption>Start index = 20 (Least noise added)</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/edits/im2im/shoe/shoe.png" alt="1">
+            <figcaption>Original image</figcaption>
+        </figure>
+    </div>
+
+    <h4>Drawing and Cartoon Edits</h4>
+
+    <p>
+        The above process is more interesting when applied to non-realistic photos, such as drawings or cartoons pulled from the web. 
+        In both cases, in theory the edit could make the original image more realistic.
+    </p>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/draw2im/night.png" alt="1">
+            <figcaption>Drawing</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/draw2im/night_edit.png" alt="1">
+            <figcaption>Edits (most noise on left)</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/draw2im/cat.png" alt="1">
+            <figcaption>Drawing</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/draw2im/cat_edit.png" alt="1">
+            <figcaption>Edits (most noise on left)</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/web2im/snoopy/snoopy.png" alt="1">
+            <figcaption>Snoopy</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/edits/web2im/snoopy/edits.png" alt="1">
+            <figcaption>Edits (most noise on left)</figcaption>
+        </figure>
+    </div>
+
+    <h4>Inpainting</h4>
+
+    <p>
+        We can also mask out a certain section of an image, and have the diffusion model denoise that section only, while coercing 
+        all other pixels to return to their original values.
+    </p>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/inpaint/test/test.png" alt="1">
+            <figcaption>Original image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/test/mask.png" alt="1">
+            <figcaption>Mask</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/test/to_replace.png" alt="1">
+            <figcaption>Area to replace</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/test/replaced.png" alt="1">
+            <figcaption>Inpainted image</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/inpaint/derry/derry.JPG" alt="1">
+            <figcaption>Original image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/derry/process.png" alt="1">
+            <figcaption>Reduced to appropriate size, mask, and area to replace</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/derry/replaced.png" alt="1">
+            <figcaption>Inpainted image</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/inpaint/landscape/landscape.jpg" alt="1">
+            <figcaption>Original image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/landscape/process.png" alt="1">
+            <figcaption>Reduced to appropriate size, mask, and area to replace</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/landscape/replaced.png" alt="1">
+            <figcaption>Inpainted image</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row-long">
+        <figure>
+            <img src="data/5A/inpaint/pizza/pizza.JPG" alt="1">
+            <figcaption>Original image</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/pizza/process.png" alt="1">
+            <figcaption>Reduced to appropriate size, mask, and area to replace</figcaption>
+        </figure>
+        <figure>
+            <img src="data/5A/inpaint/pizza/replaced.png" alt="1">
+            <figcaption>Inpainted image</figcaption>
+        </figure>
+    </div>
+
+    <h4>Text-Conditional Image-to-image Translation</h4>
+
+    <p>
+        We can also condition our diffusion model on different natural language prompts (up to this point we had been conditioning on 
+        "A high quality image"). Below are some examples, where the lower photos have less noise added and the higher photos have more noise added.
+    </p>
+
+    <div class="image-row-tall">
+        <figure>
+            <img src="data/5A/text-conditioned/rocket.png" alt="1">
+            <figcaption>Campanile condition on "a rocket ship"</figcaption>
+        </figure>
+
+        <figure>
+            <img src="data/5A/text-conditioned/barista.png" alt="1">
+            <figcaption>Derry conditioned on "a photo of a hipster barista"</figcaption>
+        </figure>
+
+        <figure>
+            <img src="data/5A/text-conditioned/campfire.png" alt="1">
+            <figcaption>Drawing conditioned on "an oil painting of people around a campfire"</figcaption>
+        </figure>
+    </div>
+
+    <h4>Visual Anagrams</h4>
+
+    <p>
+        One of the more cool things we can do is to create illusions where an image appears to be one thing when rightside up, but 
+        turns into a completely different thing when flipped upside down.
+    </p>
+
+    <p>
+        To have our diffusion model create these images, at each time step we essentially predict the noise of the image conditioned on one text prompt, 
+        flip the image, and predict the noise condition on the other text prompt. These two noises are then combined for our final noise estimate to be used for 
+        denoising.
+
+        $$
+        \begin{aligned}
+        \epsilon_1 &= \text{UNet}(x_t, t, p_1)\\
+        \epsilon_2 &= \text{flip}(\text{UNet}(\text{flip}(x_t), t, p_1))\\
+        \epsilon &= (\epsilon_1 + \epsilon_2)/2
+        \end{aligned}
+        $$
+
+        Below are some examples of visual anagrams we can create:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/illusions/updown/campfire_oldman_up.png" alt="1">
+            <figcaption>Rightside up, it's a group of people around a campfire</figcaption>
+        </figure>
+
+        <figure>
+            <img src="data/5A/illusions/updown/campfire_oldman_down.png" alt="1">
+            <figcaption>Upside down, it's an old man</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/illusions/updown/coast_dog_up.png" alt="1">
+            <figcaption>Rightside up, its a coastline</figcaption>
+        </figure>
+
+        <figure>
+            <img src="data/5A/illusions/updown/coast_dog_down.png" alt="1">
+            <figcaption>Upside down, it's a dog with a flower crown</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/illusions/updown/wintertown_hat_up.png" alt="1">
+            <figcaption>Rightside up, it's a snowy winter town</figcaption>
+        </figure>
+
+        <figure>
+            <img src="data/5A/illusions/updown/wintertown_hat_down.png" alt="1">
+            <figcaption>Upside down, it's a man in a hat</figcaption>
+        </figure>
+    </div>
+
+    <h4>Hybrid Images</h4>
+
+    <p>
+        In a similar vein to the previous part, we can create images that look like one thing from close up, and another from 
+        far away (or blurring your eyes)
+    </p>
+
+    <p>
+        To achieve this, we generate two noise estimates, each conditioned on a prompt. The noise estimate corresponding to the prompt 
+        we want to see from close up, we high pass. The noise estimate corresponding to the prompt we want to see from far away, we low pass. Then 
+        we just add the noises together for our final noise estimate. Here are some examples:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5A/illusions/farclose/skull_waterfall.png" alt="1">
+            <figcaption>Close up, it's a waterfall, far away, it's a skull</figcaption>
+        </figure>
+
+        <figure>
+            <img src="data/5A/illusions/farclose/pencil_dog.png" alt="1">
+            <figcaption>Close up, it's a dog, far away, it's a pencil</figcaption>
+        </figure>
+
+        <figure>
+            <img src="data/5A/illusions/farclose/oldman_coast.png" alt="1">
+            <figcaption>Close up, it's a coast, far away, it's an old man</figcaption>
+        </figure>
+
+    </div>
+
+    <h2> Part 2: Diffusion Models from Scratch!</h2>
+
+    <p>
+        In the previous section, we used a pre-trained DeepFloyd model. In this section, we build and train our own U-Net, specifically 
+        trained on the MNIST dataset of handwritten numbers.
+    </p>
+
+    <h3> Training a Single-Step Denoising U-Net </h3>
+
+    <p>
+        We begin by building up a simple U-Net architecture as outlined in the project spec. The model learns kernels such that it can 
+        denoise an image into a digit by taking the 1x28x28 image in, creating many hidden layers (for this first part we use 128), and pass the 
+        transformed image through various layers of dowmsampling, upsampling, and convolutional blocks (plus some skip connections using tensor concatenation)
+    </p>
+
+    <p>
+        To train this U-net, we need noisy images, which we can generate using Gaussian noise: $z = x + \sigma \epsilon$ where $\epsilon$ is our Gaussian noise, and $\sigma$ 
+        controls the strength of the noise. Below are a few different noise levels visualized:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/uncond_unet/noise_levels.png" alt="1">
+        </figure>
+    </div>
+
+    <p>
+        We choose to work with $\sigma = 0.5$ and train the U-net on our MNIST dataset using hidden dimension $D = 128$, and an Adam optimizer with learning rate $1e-4$. 
+        Over 5 epochs, here is the training loss plot:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/uncond_unet/train_loss.png" alt="1">
+        </figure>
+    </div>
+
+    <p>
+        And below we can see the results of applying the U-Net after 1 epoch of training, and 5 epochs of training.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/uncond_unet/epoch1.png" alt="1">
+            <figcaption>Top layer: original image. Middle layer: noised with $\sigma = 0.5$. Bottom layer U-Net applied</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/uncond_unet/epoch5.png" alt="1">
+            <figcaption>Top layer: original image. Middle layer: noised with $\sigma = 0.5$. Bottom layer U-Net applied</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        The U-Net was only trained on the specific cases where the noise added had parameter $\sigma = 0.5$. So we can test it on out-of-distribution 
+        examples at various other $\sigma$ levels:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/uncond_unet/out_of_sample.png" alt="1">
+            <figcaption>$\sigma = $ 0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0, from left to right</figcaption>
+        </figure>
+    </div>
+
+    <h3>Training a Diffusion Model</h3>
+
+    <p>
+        Now that we have a basic U-Net, we can use it to create a diffusion model.
+    </p>
+
+    <h4>Adding Time-Conditioning to UNet</h4>
+
+    <p>
+        From the previous parts of the project, we know that a one-shot diffusion model is less effective than a iterative diffusion model. 
+        That means we need to introduce some dependency on $t$ the denoising step, into the U-Net.
+    </p>
+
+    <p>
+        We do so by introducing two FCBlocks that take in $t$ as an input and are added to blocks during our upsampling stage.
+    </p>
+
+    <p>
+        We also need a set of noise coefficients, which are derived based on the procedures in the project spec. Finally, our loss is 
+        defined as the MSE of our predicted noise vs. the actual noise. Implementing these changes and training the U-Net, we get the following training loss curve:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/time_cond/train_loss.png" alt="1">
+        </figure>
+    </div>
+
+    <p>
+        We also define a sampling procedure which is similar to our previous parts, but we replace the added variance with $\sqrt{\beta_t}$. Using this sampler, 
+        we can produce the following digits after 5 and 20 epochs.
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/time_cond/epoch5.png" alt="1">
+            <figcaption>Generated digits after 5 epochs</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/time_cond/epoch20.png" alt="1">
+            <figcaption>Generated digits after 20 epochs</figcaption>
+        </figure>
+    </div>
+
+    <h4>
+        Adding Class-Conditioning to Unet
+    </h4>
+
+    <p>
+        Clearly, the digits from the previous section weren't great. To improve the performance of our U-Net, we can condition on class, 
+        ie. the kind of digit we are generating. Since there are exactly 10 possible digits, we can pass in a length 10 one-hot encoded vector to our U-Net, 
+        essentially allowing it to learn to denoise different for each digit.
+    </p>
+
+    <p>
+        To do so, we add two more FCBlocks into our architecture, which take the one hot encoded vector and produces a tensor to multiply into existing blocks during our 
+        upsampling stage, essentially conditioning the output on the class of digit we manually pass in.
+    </p>
+
+    <p>
+        For both the training and the sampling procedure, we also have a probability of dropout, where 10% of the time, we pass in a zero vector instead of a one-hot encoded vector, 
+        essentially getting rid of conditioning for that specific iteration/training pass.
+    </p>
+
+    <p>
+        These modifications result in the following training loss plot:
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/class_cond/train_loss.png" alt="1">
+        </figure>
+    </div>
+
+    <p>
+        And now after 5 and 20 epochs, we get significantly better digits!
+    </p>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/class_cond/epoch5.png" alt="1">
+            <figcaption>Generated digits after 5 epochs</figcaption>
+        </figure>
+    </div>
+
+    <div class="image-row">
+        <figure>
+            <img src="data/5B/class_cond/epoch20.png" alt="1">
+            <figcaption>Generated digits after 20 epochs</figcaption>
+        </figure>
+    </div>
+
+</body>
+</html>
